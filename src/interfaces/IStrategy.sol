@@ -4,6 +4,30 @@ import {IERC20} from "./IERC20.sol";
 
 // As I'm combining the strategy contract with the vault contract I think some of these function signatures are redundant
 interface IStrategy {
+ function deposit(
+        address[] calldata _tokens,
+        uint256[] calldata _amounts,
+        bytes calldata _additionalData,
+        address _for
+    )
+        external
+        returns (bool);
+    function withdraw(
+        address _by,
+        address[] calldata _tokens,
+        uint256[] calldata _amounts,
+        bytes calldata _additionalData,
+        address _to
+    )
+        external
+        returns (bool);
+    function getYieldStrategyManager() external view returns (address);
+
+}
+
+
+
+interface IBeefyStrategy {
     function vault() external view returns (address);
     function want() external view returns (IERC20);
     function beforeDeposit() external;
