@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import { IERC20 } from "@openzeppelin/token/ERC20/IERC20.sol";
+import { IERC20 } from "../../interfaces/IERC20.sol";
 
 import { SafeERC20 } from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/utils/ReentrancyGuard.sol";
 
-import { IAaveV3BaseStrategy } from "../interfaces/strategies/IAaveV3BaseStrategy.sol";
-import { IPool } from "../interfaces/vendors/aaveV3/IPool.sol";
+import { IAaveV3BaseStrategy } from "../../interfaces/IAaveV3BaseStrategy.sol";
+import { IPool } from "../../interfaces/aave/IPool.sol";
 
 import { Strategy } from "../Strategy.sol";
 import { Utils } from "../../utils.sol";

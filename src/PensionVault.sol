@@ -27,9 +27,33 @@ contract PensionVault is ERC4626 {
   }
   function symbol() public view override returns (string memory) {
     return _symbol;
-
   }
 
+
+  //Yields would be the annuity? 
+  //Maybe variable annuity
+  //So deposit like 100,000k worth of stable coins throughout a period of time at fixed intervals(or maybe all at once) and get portion of yield
+  //How much in annunities do you want to receive
+  //For how long do you want to get it
+  //This is how much you need to deposit 
+  //Might need to figure how to calculate yield percentages on the smart contract itself 
+  //function get_yield_percentage() public
+  //address yieldBenefactor - allows people who pay into pensions to have it applicable to other people 
+  //function harvestPension()
+  //accumulationPhaseLength is the unix timestamp length of time of the period in which the plan is paid into
+  //distributionPhaseLength is the unix timestamp length of time of the period in which the plan is paid out to the yieldBenefactor
+  // preFixedTermInterval is the interval between payments into the plan
+  // fixedTermInterval is the interval between payments to the yieldBenefactor
+  // totalAmtToBeDeposited is the amount that needs to be deposited into the plan in order to fufill investment obligations 
+  //maybe put in uint gracePeriod?
+  //function createPensionPlan(uint accumulationPhaseLength, uint distributionPhaseLength, uint preFixedTermInterval,uint fixedTermInterval,address yieldBenefactor)
+  //uint totalAmtToBeDeposited, address underlyingToken, 
+  // maybe send minted shares to yieldBenefactor?
+  //uint lastTermPaid  
+  // preTermPeriod / preFixedTermInterval 
+  //The frontend would handle the ux stuff related to calculating how much 
+  //function payIntoPlan()
+  //what kind of validation is necessary
 
 }
 
