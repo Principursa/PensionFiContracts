@@ -8,6 +8,14 @@ contract PensionVault is ERC4626 {
   IERC20 public underlyingStable;
   string private _name;
   string private _symbol;
+  struct Plan {
+    uint accumulationPhaseLength;
+    uint distributionPhaseLength;
+    uint accumulationPhaseInterval;
+    uint distributionPhaseInterval;
+    address benefactor;
+
+  }
 
   constructor(IERC20 _pensionToken, IERC20 _underlyingStable, string memory __name, string memory __symbol){
     pensionToken = _pensionToken;
@@ -27,6 +35,9 @@ contract PensionVault is ERC4626 {
   }
   function symbol() public view override returns (string memory) {
     return _symbol;
+  }
+  function createPensionPlan(uint accumulationPhaseLength uint distributionPhaseLength, uint accumulationPhaseInterval, uint distributionPhaseInterval, address benefactor) public {
+
   }
 
 
