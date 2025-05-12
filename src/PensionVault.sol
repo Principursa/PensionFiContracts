@@ -6,8 +6,10 @@ import {IERC20} from "./interfaces/IERC20.sol";
 contract PensionVault is ERC4626 {
     IERC20 public pensionToken;
     IERC20 public underlyingStable;
+    uint public gracePeriod;
     string private _name;
     string private _symbol;
+    uint public exitTax; //If necessary
     struct Plan {
         uint startTime;
         uint gracePeriod;
@@ -15,12 +17,14 @@ contract PensionVault is ERC4626 {
         uint distributionPhaseLength;
         uint accumulationPhaseInterval;
         uint distributionPhaseInterval;
-        address benefactor;
+        address beneficiary;
         uint totalDepositAmount;
         uint currentDepositAmount;
+        address benefactor;
+        bool accumOrDistribPhase;
     }
 
-    mapping(address => Plan) Plans;
+    mapping(address => mapping(address => Plan)) Plans;
 
     constructor(
         IERC20 _pensionToken,
@@ -51,13 +55,56 @@ contract PensionVault is ERC4626 {
         uint distributionPhaseLength,
         uint accumulationPhaseInterval,
         uint distributionPhaseInterval,
-        address benefactor,
-        uint totalDepositAmount
-    ) public {}
+        address beneficiary,
+        uint totalDepositAmount,
+        address benefactor
+    ) public {
+        Plan memory newPlan;
+        newPlan.startTime = block.timestamp;
+        newPlan.gracePeriod = gracePeriod;
+        newPlan.accumulationPhaseLength;
+        newPlan.distributionPhaseLength = distributionPhaseLength;
+        newPlan.accumulationPhaseInterval = accumulationPhaseInterval;
+        newPlan.distributionPhaseInterval = distributionPhaseInterval;
+        newPlan.beneficiary = beneficiary;
+        newPlan.totalDepositAmount = totalDepositAmount;
+        newPlan.currentDepositAmount = 0;
+        newPlan.benefactor = benefactor;
+        newPlan.accumOrDistribPhase = 0
+        Plans[benefactor][beneficiary] = newPlan; //I don't like this for now, there needs to be a way for a benefactor like a company to have multiple beneficiaries like employees, maybe benefactor -> id -> Plan mapping?
+    }
 
-    function payIntoPlan() public {}
+    function payIntoPlan(address beneficiary) public {
+        Plan memory selectedPlan = Plans[msg.sender][beneficiary];
+        require(selectedPlan); //implement validation here to ensure that a plan exists
+        require(
+            selectedPlan.currentDepositAmount < selectedPlan.totalDepositAmount
+        );
+        
+    }
 
-    function payOutPlan() public {}
+
+    function payOutPlan(address beneficiary) public {
+      Plan memory selectedPlan = Plans[msg.sender][beneficiary];
+      require(selectedPlan); // existence validation again
+      require(selectedPlan.currentDepositAmount == selectedPlan.totalDepositAmount);
+      if(selectedPlan.accumOrDistribPhase == 0) {
+        selectedPlan.accumOrDistribPhase = 1;
+      }
+
+    }
+
+    function calculateReturnOut(Plan givenPlan) public {
+      //Should shares also be burnt at this time then?
+
+    }
+
+    function _beforeWithdraw(
+        uint256 assets,
+        uint256 shares
+    ) internal override {}
+
+    function _afterDeposit(uint256 assets, uint256 shares) internal override {}
 
     //Yields would be the annuity?
     //Maybe variable annuity
