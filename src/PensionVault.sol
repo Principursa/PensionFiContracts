@@ -30,12 +30,14 @@ contract PensionVault is ERC4626 {
         IERC20 _pensionToken,
         IERC20 _underlyingStable,
         string memory __name,
-        string memory __symbol
+        string memory __symbol,
+        uint _exitTax
     ) {
         pensionToken = _pensionToken;
         underlyingStable = _underlyingStable;
         _name = __name;
         _symbol = __symbol;
+        exitTax = _exitTax;
     }
 
     function asset() public view override returns (address) {
@@ -70,8 +72,9 @@ contract PensionVault is ERC4626 {
         newPlan.totalDepositAmount = totalDepositAmount;
         newPlan.currentDepositAmount = 0;
         newPlan.benefactor = benefactor;
-        newPlan.accumOrDistribPhase = 0
-        Plans[benefactor][beneficiary] = newPlan; //I don't like this for now, there needs to be a way for a benefactor like a company to have multiple beneficiaries like employees, maybe benefactor -> id -> Plan mapping?
+        newPlan.accumOrDistribPhase = 0;
+        Plans[benefactor][beneficiary] = newPlan; 
+        //I don't like this for now, there needs to be a way for a benefactor like a company to have multiple beneficiaries like employees, maybe benefactor -> id -> Plan mapping?
     }
 
     function payIntoPlan(address beneficiary) public {
