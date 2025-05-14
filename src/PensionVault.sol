@@ -2,8 +2,20 @@
 pragma solidity ^0.8.13;
 import "solady/tokens/ERC4626.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
+import {IYieldStrategyManager} from "./interfaces/IYieldStrategyManager.sol";
+import {Ownable} from "@openzeppelin/access/Ownable.sol";
+import {EnumerableSet} from "@openzeppelin/utils/structs/EnumerableSet.sol";
+import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 
-contract PensionVault is ERC4626 {
+contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
+    using EnumerableSet for EnumerableSet.AddressSet;
+    using SafeERC20 for IERC20;
+
+    EnumerableSet.AddressSet private s_whitelistedStrategies;
+
+    mapping(address user => mapping(address strategy => address operator))
+        private s_operators;
+
     IERC20 public pensionToken;
     IERC20 public underlyingStable;
     uint public gracePeriod;
@@ -31,8 +43,9 @@ contract PensionVault is ERC4626 {
         IERC20 _underlyingStable,
         string memory __name,
         string memory __symbol,
-        uint _exitTax
-    ) {
+        uint _exitTax,
+        address _owner
+    ) Ownable(_owner) {
         pensionToken = _pensionToken;
         underlyingStable = _underlyingStable;
         _name = __name;
@@ -44,6 +57,14 @@ contract PensionVault is ERC4626 {
         return address(underlyingStable);
     }
 
+    function _revert(uint256 s) private pure {
+        /// @solidity memory-safe-assembly
+        assembly {
+            mstore(0x00, s)
+            revert(0x1c, 0x04)
+        }
+    }
+
     function name() public view override returns (string memory) {
         return _name;
     }
@@ -51,6 +72,78 @@ contract PensionVault is ERC4626 {
     function symbol() public view override returns (string memory) {
         return _symbol;
     }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                YieldStrategyManager functions              */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    function whitelistStrategy(address _strategy) external onlyOwner {
+        require(_strategy != 0, "address is zero");
+        s_whitelistedStrategies.add(_strategy);
+    }
+
+    function removeStrategy(address _strategy) external onlyOwner {
+        //require whitelistedstrategy
+
+        s_whitelistedStrategies.remove(_strategy);
+
+        emit RemovedStrategyFromWhitelist(_strategy);
+    }
+
+    function setOperator(
+        address _strategy,
+        address _operator,
+        bool _setOperator
+    ) external {
+        // require whitelistedstrategy
+        require(_strategy != 0, "address is zero");
+        if (_setOperator) s_operators[msg.sender][_strategy] = _operator;
+        else delete s_operators[msg.sender][_strategy];
+
+        emit OperatorSet(msg.sender, _strategy, _operator, _setOperator);
+    }
+
+    function _requireWhiteListedStrategy(address _strategy) internal view {
+        if (!s_whitelistedStrategies.contains(_strategy)) {
+            revert("Strategy is not whitelisted");
+        }
+    }
+
+    function getStrategy(uint256 _index) external view returns (address) {
+        return s.s_whitelistedStrategies.at(_index);
+    }
+
+    function getAllStrategies() external view returns (address[] memory) {
+        return s_whitelistedStrategies.values();
+    }
+
+    function getOperator(
+        address _strategy,
+        address _user
+    ) external view returns (address) {
+        return s_operators[_user][_strategy];
+    }
+
+    //function deposit(
+    //    address _strategy,
+    //    address[] calldata _tokens,
+    //    uint256[] calldata _amounts,
+    //    bytes calldata _additionalData,
+    //    address _onBehalfOf
+    //) external;
+
+    //function withdraw(
+    //    address _user,
+    //    address _strategy,
+    //    address[] calldata _tokens,
+    //    uint256[] calldata _amounts,
+    //    bytes calldata _additionalData,
+    //    address _to
+    //) external;
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                 Pension-Vault functions                    */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function createPensionPlan(
         uint accumulationPhaseLength,
@@ -60,7 +153,7 @@ contract PensionVault is ERC4626 {
         address beneficiary,
         uint totalDepositAmount,
         address benefactor
-    ) public {
+    ) private {
         Plan memory newPlan;
         newPlan.startTime = block.timestamp;
         newPlan.gracePeriod = gracePeriod;
@@ -73,7 +166,7 @@ contract PensionVault is ERC4626 {
         newPlan.currentDepositAmount = 0;
         newPlan.benefactor = benefactor;
         newPlan.accumOrDistribPhase = 0;
-        Plans[benefactor][beneficiary] = newPlan; 
+        Plans[benefactor][beneficiary] = newPlan;
         //I don't like this for now, there needs to be a way for a benefactor like a company to have multiple beneficiaries like employees, maybe benefactor -> id -> Plan mapping?
     }
 
@@ -83,29 +176,56 @@ contract PensionVault is ERC4626 {
         require(
             selectedPlan.currentDepositAmount < selectedPlan.totalDepositAmount
         );
-        
     }
-
 
     function payOutPlan(address beneficiary) public {
-      Plan memory selectedPlan = Plans[msg.sender][beneficiary];
-      require(selectedPlan); // existence validation again
-      require(selectedPlan.currentDepositAmount == selectedPlan.totalDepositAmount);
-      if(selectedPlan.accumOrDistribPhase == 0) {
-        selectedPlan.accumOrDistribPhase = 1;
-      }
-
+        Plan memory selectedPlan = Plans[msg.sender][beneficiary];
+        require(selectedPlan); // existence validation again
+        require(
+            selectedPlan.currentDepositAmount == selectedPlan.totalDepositAmount
+        );
+        if (selectedPlan.accumOrDistribPhase == 0) {
+            selectedPlan.accumOrDistribPhase = 1;
+        }
     }
 
-    function calculateReturnOut(Plan givenPlan) public {
-      //Should shares also be burnt at this time then?
+    function calculateReturnOut(Plan memory givenPlan) public {
+        //Should shares also be burnt at this time then?
+    }
 
+    function viewTermsLeft(
+        address benefactor,
+        address beneficiary
+    ) public returns (Plan memory) {
+        Plan memory givenPlan = Plans[benefactor][beneficiary];
+        return givenPlan;
     }
 
     function _beforeWithdraw(
         uint256 assets,
         uint256 shares
     ) internal override {}
+
+    function deposit(
+        uint256 assets,
+        address to,
+        uint distributionPhaseLength,
+        uint distributionPhaseInterval,
+        address beneficiary
+    ) public override returns (uint256 shares) {
+        if (assets > maxDeposit(to)) _revert(0xb3c61a83); // `DepositMoreThanMax()`.
+        shares = previewDeposit(assets);
+        _deposit(msg.sender, to, assets, shares);
+        createPensionPlan(
+            0,
+            distributionPhaseLength,
+            0,
+            distributionPhaseInterval,
+            beneficiary,
+            assets,
+            msg.sender
+        );
+    }
 
     function _afterDeposit(uint256 assets, uint256 shares) internal override {}
 
