@@ -7,11 +7,11 @@ import {PensionVault} from "../../src/PensionVault.sol";
 contract PensionVaultTest is Test {
     PensionVault public pensionvault;
 
-    function setUp() public {
-        pensionvault = new PensionVault;
-    }
+    function setUp() public {}
 
     function test_deposit() public {}
 
     function test_withdraw() public {}
+
+    function test_payOut() public {}
 }

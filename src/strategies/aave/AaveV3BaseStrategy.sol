@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import { IERC20 } from "../../interfaces/IERC20.sol";
+import {IERC20} from "../../interfaces/IERC20.sol";
 
-import { SafeERC20 } from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
-import { ReentrancyGuard } from "@openzeppelin/utils/ReentrancyGuard.sol";
+import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/utils/ReentrancyGuard.sol";
 
-import { IAaveV3BaseStrategy } from "../../interfaces/IAaveV3BaseStrategy.sol";
-import { IPool } from "../../interfaces/aave/IPool.sol";
+import {IAaveV3BaseStrategy} from "../../interfaces/IAaveV3BaseStrategy.sol";
+import {IPool} from "../../interfaces/aave/IPool.sol";
 
-import { Strategy } from "../Strategy.sol";
-import { Utils } from "../../utils.sol";
+import {Strategy} from "../Strategy.sol";
+import {Utils} from "../../utils.sol";
 
 /// @title AaveV3BaseStrategy.
 /// @author mgnfy-view.
@@ -23,12 +23,16 @@ contract AaveV3BaseStrategy is IAaveV3BaseStrategy, Strategy {
     /// @dev The Aave V3 pool address.
     address private immutable i_pool;
     /// @dev Mapping to track user positions.
-    mapping(address user => mapping(address asset => uint256 aTokens)) private s_aTokenBalance;
+    mapping(address user => mapping(address asset => uint256 aTokens))
+        private s_aTokenBalance;
 
     /// @notice Sets the yield strategy manager and Aave V3 pool addresses.
     /// @param _yieldStrategyManager The yield strategy manager contract.
     /// @param _pool The Aave V3 pool address.
-    constructor(address _yieldStrategyManager, address _pool) Strategy(_yieldStrategyManager) {
+    constructor(
+        address _yieldStrategyManager,
+        address _pool
+    ) Strategy(_yieldStrategyManager) {
         i_pool = _pool;
     }
 
@@ -42,11 +46,7 @@ contract AaveV3BaseStrategy is IAaveV3BaseStrategy, Strategy {
         uint256[] calldata _amounts,
         bytes calldata _additionalData,
         address _for
-    )
-        external
-        onlyYieldStrategyManager
-        returns (bool)
-    {
+    ) external onlyYieldStrategyManager returns (bool) {
         Utils.requireExactlyOne(_tokens.length);
         _manageInputTokenAmounts(_tokens, _amounts);
 
@@ -57,7 +57,8 @@ contract AaveV3BaseStrategy is IAaveV3BaseStrategy, Strategy {
 
         aavePool.supply(_tokens[0], _amounts[0], address(this), referralCode);
 
-        uint256 aTokensReceived = IERC20(aToken).balanceOf(address(this)) - aTokenBalanceBefore;
+        uint256 aTokensReceived = IERC20(aToken).balanceOf(address(this)) -
+            aTokenBalanceBefore;
         s_aTokenBalance[_for][_tokens[0]] += aTokensReceived;
 
         emit DepositedIntoAave(_for, _tokens[0], aTokensReceived);
@@ -74,17 +75,18 @@ contract AaveV3BaseStrategy is IAaveV3BaseStrategy, Strategy {
         address _by,
         address[] calldata _tokens,
         uint256[] calldata _amounts,
-        bytes calldata, /* _additionalData */
+        bytes calldata /* _additionalData */,
         address _to
-    )
-        external
-        onlyYieldStrategyManager
-        returns (bool)
-    {
+    ) external onlyYieldStrategyManager returns (bool) {
         Utils.requireExactlyOne(_tokens.length);
 
         IPool aavePool = IPool(i_pool);
-        _revertIfInsufficientAmountToWithdraw(aavePool, _tokens[0], _by, _amounts[0]);
+        _revertIfInsufficientAmountToWithdraw(
+            aavePool,
+            _tokens[0],
+            _by,
+            _amounts[0]
+        );
 
         s_aTokenBalance[_by][_tokens[0]] -= _amounts[0];
         aavePool.withdraw(_tokens[0], _amounts[0], _to);
@@ -97,7 +99,10 @@ contract AaveV3BaseStrategy is IAaveV3BaseStrategy, Strategy {
     /// @notice Approves the input token to Aave V3 before calling `aaveV3Pool.supply()`.
     /// @param _tokens The tokens to approve. Only the first token in the array is managed.
     /// @param _amounts The amounts to apporve. Only the first amount in the array is used.
-    function _manageInputTokenAmounts(address[] calldata _tokens, uint256[] calldata _amounts) internal {
+    function _manageInputTokenAmounts(
+        address[] calldata _tokens,
+        uint256[] calldata _amounts
+    ) internal {
         address aavePool = i_pool;
         uint256 length = _tokens.length;
 
@@ -116,14 +121,13 @@ contract AaveV3BaseStrategy is IAaveV3BaseStrategy, Strategy {
         address _asset,
         address _user,
         uint256 _amountToWithdraw
-    )
-        internal
-        view
-    {
+    ) internal view {
         uint256 liquidityIndex = _pool.getReserveNormalizedIncome(_asset);
-        uint256 withdrawableAmount = (s_aTokenBalance[_user][_asset] * liquidityIndex) / E27;
+        uint256 withdrawableAmount = (s_aTokenBalance[_user][_asset] *
+            liquidityIndex) / E27;
 
-        if (_amountToWithdraw > withdrawableAmount) revert AaveV3BaseStrategy__InsufficientAmountToWitdraw();
+        if (_amountToWithdraw > withdrawableAmount)
+            revert AaveV3BaseStrategy_InsufficientAmountToWithdraw();
     }
 
     /// @notice Gets the Aave V3 pool address.
@@ -134,7 +138,10 @@ contract AaveV3BaseStrategy is IAaveV3BaseStrategy, Strategy {
     /// @notice Gets the aToken balance of a user in their position.
     /// @param _user The user address.
     /// @param _asset The token address.
-    function getATokenBalance(address _user, address _asset) external view returns (uint256) {
+    function getATokenBalance(
+        address _user,
+        address _asset
+    ) external view returns (uint256) {
         return s_aTokenBalance[_user][_asset];
     }
 }

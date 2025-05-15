@@ -6,6 +6,7 @@ import {IYieldStrategyManager} from "./interfaces/IYieldStrategyManager.sol";
 import {Ownable} from "@openzeppelin/access/Ownable.sol";
 import {EnumerableSet} from "@openzeppelin/utils/structs/EnumerableSet.sol";
 import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 
 contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -57,14 +58,6 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
         return address(underlyingStable);
     }
 
-    function _revert(uint256 s) private pure {
-        /// @solidity memory-safe-assembly
-        assembly {
-            mstore(0x00, s)
-            revert(0x1c, 0x04)
-        }
-    }
-
     function name() public view override returns (string memory) {
         return _name;
     }
@@ -77,8 +70,12 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
     /*                YieldStrategyManager functions              */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
+    function getStrategy(uint256 _index) public view returns (address) {
+        return s_whitelistedStrategies.at(_index);
+    }
+
     function whitelistStrategy(address _strategy) external onlyOwner {
-        require(_strategy != 0, "address is zero");
+        require(_strategy != address(0), "address is zero");
         s_whitelistedStrategies.add(_strategy);
     }
 
@@ -96,7 +93,7 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
         bool _setOperator
     ) external {
         // require whitelistedstrategy
-        require(_strategy != 0, "address is zero");
+        require(_strategy != address(0), "address is zero");
         if (_setOperator) s_operators[msg.sender][_strategy] = _operator;
         else delete s_operators[msg.sender][_strategy];
 
@@ -107,10 +104,6 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
         if (!s_whitelistedStrategies.contains(_strategy)) {
             revert("Strategy is not whitelisted");
         }
-    }
-
-    function getStrategy(uint256 _index) external view returns (address) {
-        return s.s_whitelistedStrategies.at(_index);
     }
 
     function getAllStrategies() external view returns (address[] memory) {
@@ -165,14 +158,14 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
         newPlan.totalDepositAmount = totalDepositAmount;
         newPlan.currentDepositAmount = 0;
         newPlan.benefactor = benefactor;
-        newPlan.accumOrDistribPhase = 0;
+        newPlan.accumOrDistribPhase = false;
         Plans[benefactor][beneficiary] = newPlan;
         //I don't like this for now, there needs to be a way for a benefactor like a company to have multiple beneficiaries like employees, maybe benefactor -> id -> Plan mapping?
     }
 
     function payIntoPlan(address beneficiary) public {
         Plan memory selectedPlan = Plans[msg.sender][beneficiary];
-        require(selectedPlan); //implement validation here to ensure that a plan exists
+        require(selectedPlan.beneficiary != address(0)); //implement validation here to ensure that a plan exists
         require(
             selectedPlan.currentDepositAmount < selectedPlan.totalDepositAmount
         );
@@ -180,12 +173,12 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
 
     function payOutPlan(address beneficiary) public {
         Plan memory selectedPlan = Plans[msg.sender][beneficiary];
-        require(selectedPlan); // existence validation again
+        require(selectedPlan.beneficiary != address(0)); // existence validation again
         require(
             selectedPlan.currentDepositAmount == selectedPlan.totalDepositAmount
         );
-        if (selectedPlan.accumOrDistribPhase == 0) {
-            selectedPlan.accumOrDistribPhase = 1;
+        if (selectedPlan.accumOrDistribPhase == false) {
+            selectedPlan.accumOrDistribPhase = true;
         }
     }
 
@@ -206,16 +199,20 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
         uint256 shares
     ) internal override {}
 
-    function deposit(
+    function depositStrategy(
         uint256 assets,
         address to,
         uint distributionPhaseLength,
         uint distributionPhaseInterval,
-        address beneficiary
-    ) public override returns (uint256 shares) {
-        if (assets > maxDeposit(to)) _revert(0xb3c61a83); // `DepositMoreThanMax()`.
+        address beneficiary,
+        uint strategyId
+    ) public returns (uint256 shares) {
+        require(
+            assets < maxDeposit(address(this)),
+            "Deposit is greater than assets"
+        );
         shares = previewDeposit(assets);
-        _deposit(msg.sender, to, assets, shares);
+        deposit(assets, to);
         createPensionPlan(
             0,
             distributionPhaseLength,
@@ -225,9 +222,34 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
             assets,
             msg.sender
         );
+        _afterDepositStrategy(assets, strategyId);
     }
 
-    function _afterDeposit(uint256 assets, uint256 shares) internal override {}
+    function deposit(
+        uint256 assets,
+        address to
+    ) public override returns (uint256 shares) {
+        //visibility is going to be an issue later on, for now it's alright tho
+        require(
+            assets < maxDeposit(address(this)),
+            "Deposit is greater than assets"
+        );
+        shares = previewDeposit(assets);
+        _deposit(msg.sender, to, assets, shares);
+    }
+
+    function _afterDepositStrategy(
+        uint256 assets,
+        uint256 strategyId
+    ) internal {
+        SafeTransferLib.safeApprove(asset(), getStrategy(strategyId), assets);
+        SafeTransferLib.safeTransferFrom(
+            asset(),
+            address(this),
+            getStrategy(strategyId),
+            assets
+        );
+    }
 
     //Yields would be the annuity?
     //Maybe variable annuity
