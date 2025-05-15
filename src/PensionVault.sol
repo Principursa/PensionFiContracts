@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 import "solady/tokens/ERC4626.sol";
-import {IERC20} from "./interfaces/IERC20.sol";
-import {IYieldStrategyManager} from "./interfaces/IYieldStrategyManager.sol";
+import {IERC20} from "@/interfaces/IERC20.sol";
+import {IYieldStrategyManager} from "@/interfaces/IYieldStrategyManager.sol";
 import {Ownable} from "@openzeppelin/access/Ownable.sol";
 import {EnumerableSet} from "@openzeppelin/utils/structs/EnumerableSet.sol";
 import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
+import {IStrategy} from "@/interfaces/IStrategy.sol";
 
 contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -31,10 +32,12 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
         uint accumulationPhaseInterval;
         uint distributionPhaseInterval;
         address beneficiary;
-        uint totalDepositAmount;
+        uint totalDepositAmount; //both this var and curdepositamount are a little weird when considering distrib phase
         uint currentDepositAmount;
         address benefactor;
         bool accumOrDistribPhase;
+        uint payoutsClaimed;
+        uint strategyId;
     }
 
     mapping(address => mapping(address => Plan)) Plans;
@@ -145,7 +148,8 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
         uint distributionPhaseInterval,
         address beneficiary,
         uint totalDepositAmount,
-        address benefactor
+        address benefactor,
+        uint strategyId
     ) private {
         Plan memory newPlan;
         newPlan.startTime = block.timestamp;
@@ -159,11 +163,14 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
         newPlan.currentDepositAmount = 0;
         newPlan.benefactor = benefactor;
         newPlan.accumOrDistribPhase = false;
+        newPlan.payoutsClaimed = 0;
+        newPlan.strategyId = strategyId;
         Plans[benefactor][beneficiary] = newPlan;
         //I don't like this for now, there needs to be a way for a benefactor like a company to have multiple beneficiaries like employees, maybe benefactor -> id -> Plan mapping?
     }
 
     function payIntoPlan(address beneficiary) public {
+        //have to do this function as well
         Plan memory selectedPlan = Plans[msg.sender][beneficiary];
         require(selectedPlan.beneficiary != address(0)); //implement validation here to ensure that a plan exists
         require(
@@ -171,15 +178,47 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
         );
     }
 
+    //Actually maybe function here that determines if plan is in accum or distrib phase so I dont' have to bother with state
+    function isAccumulativePhase(Plan memory givenPlan) public returns (bool) {
+        return false;
+    }
+
     function payOutPlan(address beneficiary) public {
         Plan memory selectedPlan = Plans[msg.sender][beneficiary];
-        require(selectedPlan.beneficiary != address(0)); // existence validation again
+        require(selectedPlan.beneficiary != address(0), "plan does not exist"); // existence validation again
         require(
-            selectedPlan.currentDepositAmount == selectedPlan.totalDepositAmount
+            selectedPlan.currentDepositAmount ==
+                selectedPlan.totalDepositAmount,
+            "plan is not payed off yet"
         );
-        if (selectedPlan.accumOrDistribPhase == false) {
-            selectedPlan.accumOrDistribPhase = true;
-        }
+        require(
+            !isAccumulativePhase(selectedPlan),
+            "Plan is still in accumulative phase"
+        );
+        uint startTime = selectedPlan.startTime; //change this later on to distribphase start time, or overwrite it possibly
+        uint distributionPhaseLength = selectedPlan.distributionPhaseLength;
+        uint totalDepositAmount = selectedPlan.totalDepositAmount;
+        uint distributionPhaseInterval = selectedPlan.distributionPhaseInterval;
+        uint totalPayouts = distributionPhaseLength / distributionPhaseInterval;
+        uint individualPayoutAmounts = totalDepositAmount / totalPayouts;
+        uint timeElapsedDistrib = block.timestamp - startTime;
+        uint payoutsDue = timeElapsedDistrib / distributionPhaseInterval;
+        require(payoutsDue <= totalPayouts, "Too many payouts");
+        uint alreadyClaimed = selectedPlan.payoutsClaimed;
+        require(payoutsDue > alreadyClaimed, "No payouts available");
+        uint pendingPayouts = payoutsDue - alreadyClaimed;
+        uint payoutAmount = (individualPayoutAmounts) * pendingPayouts;
+        selectedPlan.payoutsClaimed = payoutsDue;
+        IStrategy strat = getStrategy(selectedPlan.strategyId);
+        strat.withdraw(beneficiary, asset(), payoutAmount, bytes(0x0), _to);
+
+        //SafeTransferLib.safeApprove(asset(), getStrategy(strategyId), assets); //call withdraw on strategy here
+        //SafeTransferLib.safeTransferFrom(
+        //    asset(),
+        //    address(this),
+        //    getStrategy(strategyId),
+        //    assets
+        //);
     }
 
     function calculateReturnOut(Plan memory givenPlan) public {
@@ -243,12 +282,8 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
         uint256 strategyId
     ) internal {
         SafeTransferLib.safeApprove(asset(), getStrategy(strategyId), assets);
-        SafeTransferLib.safeTransferFrom(
-            asset(),
-            address(this),
-            getStrategy(strategyId),
-            assets
-        );
+        IStrategy strat = IStrategy(getStrategy(strategyId));
+        strat.deposit(beneficiary, asset(), assets, bytes(0x0), _for); //changelast
     }
 
     //Yields would be the annuity?

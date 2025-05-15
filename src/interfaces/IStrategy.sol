@@ -5,16 +5,17 @@ import {IERC20} from "./IERC20.sol";
 // As I'm combining the strategy contract with the vault contract I think some of these function signatures are redundant
 interface IStrategy {
     function deposit(
-        address[] calldata _tokens,
-        uint256[] calldata _amounts,
+        address _by,
+        address token,
+        uint256 amount,
         bytes calldata _additionalData,
         address _for
     ) external returns (bool);
 
     function withdraw(
         address _by,
-        address[] calldata _tokens,
-        uint256[] calldata _amounts,
+        address token,
+        uint256 amount,
         bytes calldata _additionalData,
         address _to
     ) external returns (bool);
