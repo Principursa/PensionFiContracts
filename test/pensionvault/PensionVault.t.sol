@@ -13,6 +13,9 @@ contract PensionVaultTest is Test {
     ERC20Mintable public pensionToken = new ERC20Mintable("PensionFi", "PFI");
     ERC20Mintable public usdc = new ERC20Mintable("USDC", "USDC");
     MockStrategy public mockStrategy;
+    uint hourUnix = 3600;
+    uint dayUnix = 86400;
+    uint monthUnix = 2629743;
 
     address abe = address(0xabe);
     address bec = address(0xbec);
@@ -31,16 +34,31 @@ contract PensionVaultTest is Test {
         mockStrategy = new MockStrategy(address(pensionVault));
         pensionVault.whitelistStrategy(address(mockStrategy));
     }
-
-    function test_deposit() public {
+    function deposit() private {
         uint amount = 100 ether; //fix and calc token decimals later
         usdc.mint(bec, amount);
         startHoax(bec);
         usdc.approve(address(pensionVault), amount);
-        pensionVault.depositStrategy(amount, bec, 2629743, 86400 * 2, bec, 0);
+        pensionVault.depositStrategy(amount, bec, monthUnix,dayUnix * 2, bec, 0);
     }
 
-    function test_withdraw() public {}
+    function test_deposit() public {
+        deposit();
+        console.log(pensionVault.balanceOf(bec));
+        console.log(usdc.balanceOf(bec));
+        assertLt(0,pensionVault.balanceOf(bec));
+    }
 
-    function test_payOut() public {}
+
+    function test_payOutFails() public {
+      deposit();
+      //uint beforeBalance = usdc.balanceOf(bec);
+      vm.expectRevert();
+      pensionVault.payOutPlan(bec);
+      //uint currentBalance = usdc.balanceOf(bec);
+      //assertEq(beforeBalance,currentBalance);
+    }
+    function test_payOutSucceeds() public {
+
+    }
 }

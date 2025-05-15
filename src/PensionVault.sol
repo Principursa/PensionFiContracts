@@ -265,6 +265,7 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
             strategyId
         );
         _afterDepositStrategy(assets, strategyId, beneficiary);
+        Plans[msg.sender][beneficiary].currentDepositAmount = assets;
     }
 
     function deposit(
