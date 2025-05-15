@@ -209,8 +209,8 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
         uint pendingPayouts = payoutsDue - alreadyClaimed;
         uint payoutAmount = (individualPayoutAmounts) * pendingPayouts;
         selectedPlan.payoutsClaimed = payoutsDue;
-        IStrategy strat = getStrategy(selectedPlan.strategyId);
-        strat.withdraw(beneficiary, asset(), payoutAmount, bytes(0x0), _to);
+        IStrategy strat = IStrategy(getStrategy(selectedPlan.strategyId));
+        strat.withdraw(beneficiary, asset(), payoutAmount, bytes(""));
 
         //SafeTransferLib.safeApprove(asset(), getStrategy(strategyId), assets); //call withdraw on strategy here
         //SafeTransferLib.safeTransferFrom(
@@ -259,9 +259,10 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
             distributionPhaseInterval,
             beneficiary,
             assets,
-            msg.sender
+            msg.sender,
+            strategyId
         );
-        _afterDepositStrategy(assets, strategyId);
+        _afterDepositStrategy(assets, strategyId, beneficiary);
     }
 
     function deposit(
@@ -279,11 +280,12 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
 
     function _afterDepositStrategy(
         uint256 assets,
-        uint256 strategyId
+        uint256 strategyId,
+        address beneficiary
     ) internal {
         SafeTransferLib.safeApprove(asset(), getStrategy(strategyId), assets);
         IStrategy strat = IStrategy(getStrategy(strategyId));
-        strat.deposit(beneficiary, asset(), assets, bytes(0x0), _for); //changelast
+        strat.deposit(beneficiary, asset(), assets, bytes(""));
     }
 
     //Yields would be the annuity?

@@ -8,16 +8,14 @@ interface IStrategy {
         address _by,
         address token,
         uint256 amount,
-        bytes calldata _additionalData,
-        address _for
+        bytes calldata _additionalData
     ) external returns (bool);
 
     function withdraw(
         address _by,
         address token,
         uint256 amount,
-        bytes calldata _additionalData,
-        address _to
+        bytes calldata _additionalData
     ) external returns (bool);
 
     function getYieldStrategyManager() external view returns (address);

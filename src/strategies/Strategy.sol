@@ -5,7 +5,7 @@ import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 
 abstract contract Strategy is IStrategy {
     address internal immutable i_yieldStrategyManager;
-
+    mapping(address => uint) beneficiaryAmts;
     modifier onlyYieldStrategyManager() {
         _;
     }
@@ -22,8 +22,7 @@ abstract contract Strategy is IStrategy {
         address _by, //I suppose by could be beneficiary
         address token,
         uint256 amount,
-        bytes calldata _additionalData,
-        address _to
+        bytes calldata _additionalData
     ) public returns (bool) {
         require(msg.sender == i_yieldStrategyManager);
         SafeTransferLib.safeTransferFrom(
@@ -38,8 +37,7 @@ abstract contract Strategy is IStrategy {
         address _by,
         address token,
         uint256 amount,
-        bytes calldata _additionalData,
-        address _to
+        bytes calldata _additionalData
     ) public returns (bool) {
         require(msg.sender == i_yieldStrategyManager);
         SafeTransferLib.safeTransferFrom(
