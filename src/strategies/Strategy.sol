@@ -40,10 +40,9 @@ abstract contract Strategy is IStrategy {
         bytes calldata _additionalData
     ) public returns (bool) {
         require(msg.sender == i_yieldStrategyManager);
-        SafeTransferLib.safeApprove(token,i_yieldStrategyManager, amount);
-        SafeTransferLib.safeTransferFrom(
+        //SafeTransferLib.safeApprove(token,i_yieldStrategyManager, amount);
+        SafeTransferLib.safeTransfer(
             token,
-            address(this),
             i_yieldStrategyManager,
             amount
         );

@@ -213,6 +213,11 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
         selectedPlan.payoutsClaimed = payoutsDue;
         IStrategy strat = IStrategy(getStrategy(selectedPlan.strategyId));
         strat.withdraw(beneficiary, asset(), payoutAmount, bytes(""));
+        SafeTransferLib.safeTransfer(
+          asset(),
+          beneficiary,
+          payoutAmount
+        );
 
         //SafeTransferLib.safeApprove(asset(), getStrategy(strategyId), assets); //call withdraw on strategy here
         //SafeTransferLib.safeTransferFrom(

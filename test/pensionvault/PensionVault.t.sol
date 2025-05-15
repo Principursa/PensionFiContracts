@@ -50,7 +50,6 @@ contract PensionVaultTest is Test {
         assertGt(usdc.balanceOf(address(mockStrategy)),0);
     }
 
-
     function test_payOutFails() public {
       deposit();
       //uint beforeBalance = usdc.balanceOf(bec);
@@ -66,7 +65,7 @@ contract PensionVaultTest is Test {
       vm.warp(start + 2 days);
       pensionVault.payOutPlan(bec);
       uint currentBalance = usdc.balanceOf(bec);
+      console.log(currentBalance);
       assertGt(currentBalance,beforeBalance);
-
     }
 }
