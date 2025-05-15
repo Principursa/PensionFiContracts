@@ -8,25 +8,36 @@ import {MockStrategy} from "../mocks/MockStrategy.sol";
 import {IERC20} from "@/interfaces/IERC20.sol";
 
 contract PensionVaultTest is Test {
-    PensionVault public pensionvault;
-    ERC20Mintable public pensionToken = new ERC20Mintable("PensionFi","PFI");
-    ERC20Mintable public usdc = new ERC20Mintable("USDC","USDC");
+    PensionVault public pensionVault;
+    ERC20Mintable public pensionToken = new ERC20Mintable("PensionFi", "PFI");
+    ERC20Mintable public usdc = new ERC20Mintable("USDC", "USDC");
+    MockStrategy public mockStrategy;
 
     address abe = address(0xabe);
     address bec = address(0xbec);
 
     function setUp() public {
-      startHoax(abe);
-      pensionvault = new PensionVault(
-        IERC20(address(pensionToken)), 
-        IERC20(address(usdc)),
-        "PensionFiUsdc",
-        "PFIUsdc",
-        0,
-        msg.sender);
+        startHoax(abe);
+        pensionVault = new PensionVault(
+            IERC20(address(pensionToken)),
+            IERC20(address(usdc)),
+            "PensionFiUsdc",
+            "PFIUsdc",
+            0,
+            abe
+        );
+        console.log(pensionVault.owner());
+        mockStrategy = new MockStrategy(address(pensionVault));
+        pensionVault.whitelistStrategy(address(mockStrategy));
     }
 
-    function test_deposit() public {}
+    function test_deposit() public {
+        uint amount = 100 ether; //fix and calc token decimals later
+        usdc.mint(bec, amount);
+        startHoax(bec);
+        usdc.approve(address(pensionVault), amount);
+        pensionVault.depositStrategy(amount, bec, 2629743, 86400 * 2, bec, 0);
+    }
 
     function test_withdraw() public {}
 

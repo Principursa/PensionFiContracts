@@ -169,6 +169,8 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
         //I don't like this for now, there needs to be a way for a benefactor like a company to have multiple beneficiaries like employees, maybe benefactor -> id -> Plan mapping?
     }
 
+    //This function is a little redundant for the purposes for this hackathon
+
     function payIntoPlan(address beneficiary) public {
         //have to do this function as well
         Plan memory selectedPlan = Plans[msg.sender][beneficiary];
