@@ -179,7 +179,7 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
     }
 
     //Actually maybe function here that determines if plan is in accum or distrib phase so I dont' have to bother with state
-    function isAccumulativePhase(Plan memory givenPlan) public returns (bool) {
+    function isAccumulativePhase(Plan memory givenPlan) public pure returns (bool) {
         return false;
     }
 
@@ -195,7 +195,7 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
             !isAccumulativePhase(selectedPlan),
             "Plan is still in accumulative phase"
         );
-        uint startTime = selectedPlan.startTime; 
+        uint startTime = selectedPlan.startTime;
         //change the above to distribstarttime later, since startTime is declared when funds are deposited it's alright for now
         uint distributionPhaseLength = selectedPlan.distributionPhaseLength;
         uint totalDepositAmount = selectedPlan.totalDepositAmount;
@@ -212,12 +212,7 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
         selectedPlan.payoutsClaimed = payoutsDue;
         IStrategy strat = IStrategy(getStrategy(selectedPlan.strategyId));
         strat.withdraw(beneficiary, asset(), payoutAmount, bytes(""));
-        SafeTransferLib.safeTransfer(
-          asset(),
-          beneficiary,
-          payoutAmount
-        );
-
+        SafeTransferLib.safeTransfer(asset(), beneficiary, payoutAmount);
     }
 
     //function calculateReturnOut(Plan memory givenPlan) public {
@@ -226,11 +221,10 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
     function viewTermInfo(
         address benefactor,
         address beneficiary
-    ) public returns (Plan memory) {
+    ) external view returns (Plan memory) {
         Plan memory givenPlan = Plans[benefactor][beneficiary];
         return givenPlan;
     }
-
 
     function depositStrategy(
         uint256 assets,
@@ -282,23 +276,31 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
         IStrategy strat = IStrategy(getStrategy(strategyId));
         strat.deposit(beneficiary, asset(), assets, bytes(""));
     }
+
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                  Frontend Helper functions                 */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    function getDistributionLengthRemaining(address beneficiary) external view returns(uint){
-      Plan memory plan = Plans[msg.sender][beneficiary];
-      uint timeElapsedSinceStart = block.timestamp - plan.startTime;
-      uint distributionLengthRemaining =  plan.distributionPhaseLength - timeElapsedSinceStart;
-      return distributionLengthRemaining;
+    function getDistributionLengthRemaining(
+        address benefactor, address beneficiary
+    ) external view returns (uint) {
+        Plan memory selectedPlan = Plans[benefactor][beneficiary];
+        require(selectedPlan.startTime != 0, "Plan does not exist");
+        uint timeElapsedSinceStart = block.timestamp - selectedPlan.startTime;
+        uint distributionLengthRemaining = selectedPlan
+            .distributionPhaseLength - timeElapsedSinceStart;
+        return distributionLengthRemaining;
     }
-    function getAmountPerDistribInterval(address beneficiary) external view returns(uint){
-      Plan memory plan = Plans[msg.sender][beneficiary];
-        uint distributionPhaseLength = plan.distributionPhaseLength;
-        uint totalDepositAmount = plan.totalDepositAmount;
-        uint distributionPhaseInterval = plan.distributionPhaseInterval;
+
+    function getAmountPerDistribInterval(
+        address benefactor, address beneficiary
+    ) external view returns (uint) {
+        Plan memory selectedPlan = Plans[benefactor][beneficiary];
+        require(selectedPlan.startTime != 0, "Plan does not exist");
+        uint distributionPhaseLength = selectedPlan.distributionPhaseLength;
+        uint totalDepositAmount = selectedPlan.totalDepositAmount;
+        uint distributionPhaseInterval = selectedPlan.distributionPhaseInterval;
         uint totalPayouts = distributionPhaseLength / distributionPhaseInterval;
         uint individualPayoutAmounts = totalDepositAmount / totalPayouts;
         return individualPayoutAmounts;
     }
-
 }

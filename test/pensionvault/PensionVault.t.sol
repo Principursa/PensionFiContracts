@@ -17,6 +17,21 @@ contract PensionVaultTest is Test {
     uint monthUnix = 2629743;
     uint distributionPhaseLength = monthUnix;
     uint distributionPhaseInterval = dayUnix * 2;
+    struct Plan {
+        uint startTime;
+        uint gracePeriod;
+        uint accumulationPhaseLength;
+        uint distributionPhaseLength;
+        uint accumulationPhaseInterval;
+        uint distributionPhaseInterval;
+        address beneficiary;
+        uint totalDepositAmount;
+        uint currentDepositAmount;
+        address benefactor;
+        bool accumOrDistribPhase;
+        uint payoutsClaimed;
+        uint strategyId;
+    }
 
     address abe = address(0xabe);
     address bec = address(0xbec);
@@ -74,5 +89,25 @@ contract PensionVaultTest is Test {
         uint currentBalance = usdc.balanceOf(bec);
         console.log(currentBalance);
         assertGt(currentBalance, beforeBalance);
+    }
+
+    function test_viewTermInfo() public {
+        deposit();
+        PensionVault.Plan memory plan = pensionVault.viewTermInfo(bec, bec);
+        console.log(plan.beneficiary);
+    }
+
+    function test_getDistributionLengthRemaining() public {
+        deposit();
+        uint dlr = pensionVault.getDistributionLengthRemaining(bec,bec);
+        console.log("DLR");
+        console.log(dlr);
+    }
+
+    function test_getamountPerDistribInterval() public {
+        deposit();
+        uint adi = pensionVault.getAmountPerDistribInterval(bec,bec);
+        console.log("ADI");
+        console.log(adi);
     }
 }
