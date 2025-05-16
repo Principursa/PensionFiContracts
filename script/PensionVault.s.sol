@@ -14,17 +14,6 @@ contract PensionVaultScript is Script {
     ERC20Mintable public usdc;
 
     function setUp() public {
-        pensionToken = new ERC20Mintable("PensionFi", "PFI");
-        usdc = new ERC20Mintable("USDC", "USDC");
-        pensionVault = new PensionVault(
-            IERC20(address(pensionToken)),
-            IERC20(address(usdc)),
-            "PensionFiUsdc",
-            "PFIUsdc",
-            0,
-            msg.sender
-        );
-        mockStrategy = new MockStrategy(address(pensionVault));
     }
 
     function getChainId() public view returns (uint256) {
@@ -44,8 +33,18 @@ contract PensionVaultScript is Script {
         console.log("ChainId: ", getChainId());
         console.log("Deploying");
         vm.startBroadcast(deployerPrivateKey);
+        pensionToken = new ERC20Mintable("PensionFi", "PFI");
+        usdc = new ERC20Mintable("USDC", "USDC");
+        pensionVault = new PensionVault(
+            IERC20(address(pensionToken)),
+            IERC20(address(usdc)),
+            "PensionFiUsdc",
+            "PFIUsdc",
+            0,
+            msg.sender
+        );
+        mockStrategy = new MockStrategy(address(pensionVault));
         pensionVault.whitelistStrategy(address(mockStrategy));
-
         vm.stopBroadcast();
     }
 }

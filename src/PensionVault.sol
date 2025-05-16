@@ -166,13 +166,11 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
         newPlan.payoutsClaimed = 0;
         newPlan.strategyId = strategyId;
         Plans[benefactor][beneficiary] = newPlan;
-        //I don't like this for now, there needs to be a way for a benefactor like a company to have multiple beneficiaries like employees, maybe benefactor -> id -> Plan mapping?
     }
 
     //This function is a little redundant for the purposes for this hackathon
 
-    function payIntoPlan(address beneficiary) public {
-        //have to do this function as well
+    function payIntoPlan(address beneficiary) private {
         Plan memory selectedPlan = Plans[msg.sender][beneficiary];
         require(selectedPlan.beneficiary != address(0)); //implement validation here to ensure that a plan exists
         require(
@@ -197,7 +195,8 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
             !isAccumulativePhase(selectedPlan),
             "Plan is still in accumulative phase"
         );
-        uint startTime = selectedPlan.startTime; //change this later on to distribphase start time, or overwrite it possibly
+        uint startTime = selectedPlan.startTime; 
+        //change the above to distribstarttime later, since startTime is declared when funds are deposited it's alright for now
         uint distributionPhaseLength = selectedPlan.distributionPhaseLength;
         uint totalDepositAmount = selectedPlan.totalDepositAmount;
         uint distributionPhaseInterval = selectedPlan.distributionPhaseInterval;
@@ -219,20 +218,12 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
           payoutAmount
         );
 
-        //SafeTransferLib.safeApprove(asset(), getStrategy(strategyId), assets); //call withdraw on strategy here
-        //SafeTransferLib.safeTransferFrom(
-        //    asset(),
-        //    address(this),
-        //    getStrategy(strategyId),
-        //    assets
-        //);
     }
 
-    function calculateReturnOut(Plan memory givenPlan) public {
-        //Should shares also be burnt at this time then?
-    }
+    //function calculateReturnOut(Plan memory givenPlan) public {
+    //}
 
-    function viewTermsLeft(
+    function viewTermInfo(
         address benefactor,
         address beneficiary
     ) public returns (Plan memory) {
@@ -240,10 +231,6 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
         return givenPlan;
     }
 
-    function _beforeWithdraw(
-        uint256 assets,
-        uint256 shares
-    ) internal override {}
 
     function depositStrategy(
         uint256 assets,
@@ -295,30 +282,23 @@ contract PensionVault is ERC4626, IYieldStrategyManager, Ownable {
         IStrategy strat = IStrategy(getStrategy(strategyId));
         strat.deposit(beneficiary, asset(), assets, bytes(""));
     }
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                  Frontend Helper functions                 */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+    function getDistributionLengthRemaining(address beneficiary) external view returns(uint){
+      Plan memory plan = Plans[msg.sender][beneficiary];
+      uint timeElapsedSinceStart = block.timestamp - plan.startTime;
+      uint distributionLengthRemaining =  plan.distributionPhaseLength - timeElapsedSinceStart;
+      return distributionLengthRemaining;
+    }
+    function getAmountPerDistribInterval(address beneficiary) external view returns(uint){
+      Plan memory plan = Plans[msg.sender][beneficiary];
+        uint distributionPhaseLength = plan.distributionPhaseLength;
+        uint totalDepositAmount = plan.totalDepositAmount;
+        uint distributionPhaseInterval = plan.distributionPhaseInterval;
+        uint totalPayouts = distributionPhaseLength / distributionPhaseInterval;
+        uint individualPayoutAmounts = totalDepositAmount / totalPayouts;
+        return individualPayoutAmounts;
+    }
 
-    //Yields would be the annuity?
-    //Maybe variable annuity
-    //So deposit like 100,000k worth of stable coins throughout a period of time at fixed intervals(or maybe all at once) and get portion of yield
-    //How much in annunities do you want to receive
-    //For how long do you want to get it
-    //This is how much you need to deposit
-    //Might need to figure how to calculate yield percentages on the smart contract itself
-    //function get_yield_percentage() public
-    //address yieldBenefactor - allows people who pay into pensions to have it applicable to other people
-    //function harvestPension()
-    //accumulationPhaseLength is the unix timestamp length of time of the period in which the plan is paid into
-    //distributionPhaseLength is the unix timestamp length of time of the period in which the plan is paid out to the yieldBenefactor
-    // preFixedTermInterval is the interval between payments into the plan
-    // fixedTermInterval is the interval between payments to the yieldBenefactor
-    // totalAmtToBeDeposited is the amount that needs to be deposited into the plan in order to fufill investment obligations
-    //maybe put in uint gracePeriod?
-    //function createPensionPlan(uint accumulationPhaseLength, uint distributionPhaseLength, uint preFixedTermInterval,uint fixedTermInterval,address yieldBenefactor)
-    //uint totalAmtToBeDeposited, address underlyingToken,
-    // maybe send minted shares to yieldBenefactor?
-    //uint lastTermPaid
-    // preTermPeriod / preFixedTermInterval
-    //The frontend would handle the ux stuff related to calculating how much
-    //function payIntoPlan()
-    //Continued payouts could be handled by the shares system such that a person essentially gets out of it what they pay into it
-    //what kind of validation is necessary
 }
